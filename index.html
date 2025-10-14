@@ -111,7 +111,7 @@ function renderCalendar() {
     </div>
 
     <div class="content">
-      <h1 class="title">근무자 명단</h1>
+      <h1 class="title">${y}년 ${m}월 ${d}일 근무자 명단</h1>
       <div class="calendar">
         <input type="date" id="pickDate" value="${dateStr}" oninput="setDateFromInput()" onchange="setDateFromInput()">
         <button class="btn" onclick="setFixedDate()">Today</button>
@@ -139,4 +139,5 @@ renderHome();
 </script>
 </body>
 </html>
+
 
