@@ -9,7 +9,7 @@
   .wrap { max-width: 820px; margin: 0 auto; padding: 24px; }
   .card { background:#fff; border:1px solid #e5e7eb; border-radius:16px; overflow:hidden; box-shadow:0 6px 16px rgba(0,0,0,.08); }
 
-  /* 상단 버튼바: 절대배치 X → 겹침 방지 */
+  /* 상단 버튼바 */
   .topbar { display:flex; justify-content:flex-end; gap:8px; padding:12px 16px; }
   .chip {
     font-size:13px; padding:6px 14px;
@@ -24,27 +24,18 @@
   .title { margin:0 0 8px; font-size:24px; font-weight:700; }
   .desc  { margin:0 0 16px; color:#444; }
 
-  /* pagination: 텍스트 링크만 (박스 제거) */
+  /* pagination: 텍스트 링크만 */
   .pagination { display:flex; gap:10px; justify-content:center; align-items:center; padding:18px; flex-wrap:wrap; }
-  .pagination a, .pagination span {
-    text-decoration:none; color:#111; font-size:15px; padding:0;
-    border:none; background:transparent; min-width:auto; height:auto;
-  }
+  .pagination a, .pagination span { text-decoration:none; color:#111; font-size:15px; padding:0; border:none; background:transparent; min-width:auto; height:auto; }
   .pagination a:hover { text-decoration:underline; }
   .pagination .current { font-weight:800; text-decoration:underline; }
   .pagination .disabled { color:#bbb; pointer-events:none; }
   .pagination .dots { color:#888; }
 
-  /* 달력 */
-  .calendar { margin-top:16px; text-align:center; }
-  .calendar input[type="date"] {
-    padding:10px; border-radius:6px; border:1px solid #ccc; font-size:16px;
-  }
-  .calendar .btn {
-    margin-left:8px; padding:10px 16px; border:none; border-radius:6px;
-    background:#111; color:#fff; font-weight:600; cursor:pointer; text-decoration:none; display:inline-block;
-  }
-  .calendar-title { margin-top:12px; } /* 버튼바와 간격 */
+  /* 달력 레이아웃 (모바일 겹침 방지) */
+  .calendar { margin-top:16px; display:flex; gap:8px; justify-content:center; align-items:center; flex-wrap:wrap; }
+  .calendar input[type="date"] { padding:10px; border-radius:6px; border:1px solid #ccc; font-size:16px; min-width:190px; }
+  .calendar .btn { padding:10px 16px; border:none; border-radius:6px; background:#111; color:#fff; font-weight:600; cursor:pointer; text-decoration:none; display:inline-block; }
 </style>
 </head>
 <body>
@@ -65,7 +56,7 @@ function renderHome(page=1) {
       <a class="chip" href="#" onclick="renderCalendar()">날짜별 근무자 검색</a>
     </div>
 
-    <div class="hero"><img src="static/img/allmember.png" alt="직원 이미지"></div>
+    <div class="hero"><img src="static/img/allmember.jpg" alt="직원 이미지"></div>
 
     <div class="content">
       <h1 class="title">${page} 페이지</h1>
@@ -83,7 +74,6 @@ function buildPagination(cur, total=TOTAL_PAGES, window=2) {
     return `<a href="#" onclick="renderHome(${p})">${label}</a>`;
   };
 
-  // << <
   parts.push(link(1, "&laquo;", cur===1));
   parts.push(link(Math.max(cur-1,1), "&lt;", cur===1));
 
@@ -121,10 +111,9 @@ function renderCalendar() {
     </div>
 
     <div class="content">
-      <h1 class="title calendar-title">${y}년 ${m}월 ${d}일</h1>
+      <h1 class="title">근무자 명단</h1>
       <div class="calendar">
-        <input type="date" id="pickDate" value="${dateStr}">
-        <button class="btn" onclick="setDateFromInput()">검색</button>
+        <input type="date" id="pickDate" value="${dateStr}" oninput="setDateFromInput()" onchange="setDateFromInput()">
         <button class="btn" onclick="setFixedDate()">Today</button>
       </div>
     </div>
@@ -141,13 +130,12 @@ function setDateFromInput(){
 }
 function setFixedDate(){
   // ✅ Today = 4444-12-15
-  currentDate = new Date(4444, 11, 5); // 월은 0부터 시작 → 11은 12월
+  currentDate = new Date(4444, 11, 5); // 0-indexed month → 11 = 12월
   renderCalendar();
 }
 
+// 초기 렌더
 renderHome();
 </script>
 </body>
 </html>
-
-
