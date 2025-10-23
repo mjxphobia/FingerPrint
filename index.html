@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>전체 직원 보기</title>
+<style>
+  :root{
+    --bg:#ffffff; --fg:#111; --line:#e5e7eb; --muted:#666;
+    --card:#fff;
+  }
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:system-ui,Roboto,'Noto Sans KR',sans-serif;}
+  .wrap{max-width:860px;margin:0 auto;padding:20px;}
+
+  .card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:16px;
+    overflow:hidden;
+    box-shadow:0 6px 16px rgba(0,0,0,.06);
+  }
+
+  /* 상단바: 가운데 정렬 */
+  .topbar{
+    display:flex; flex-direction:column; gap:10px;
+    align-items:center; justify-content:center;
+    padding:16px;
+    border-bottom:1px solid var(--line);
+    text-align:center;
+  }
+  .title{font-size:20px;font-weight:900;margin:0}
+
+  .chips{display:flex; gap:10px; flex-wrap:wrap; justify-content:center;}
+  .chip{
+    font-size:13px; padding:8px 14px;
+    border:1px solid var(--line); border-radius:10px;
+    text-decoration:none; color:var(--fg); background:#fff;
+    font-weight:700;
+  }
+  .chip:hover{background:#f5f5f5}
+
+  .hero{display:flex; justify-content:center; align-items:center;}
+  .hero img{width:100%;height:auto;display:block;object-fit:cover}
+
+  .content{padding:18px 16px; text-align:center;}
+  .name{font-size:24px;font-weight:900;margin:0 0 6px}
+  .role{margin:0 6px 6px;color:#0b58b6;font-weight:800}
+  .born{margin:0 0 12px; color:#333; font-weight:700;}
+  .bio{margin:0 0 10px;color:#444;line-height:1.6}
+  .pledge{margin:4px 0 16px; color:#222; font-weight:800;}
+
+  /* 지문 표 */
+  .fp-table{
+    width: 260px; max-width: 90%;
+    margin: 0 auto 10px;
+    border-collapse: collapse;
+    border: 1px solid var(--line);
+  }
+  .fp-table td{
+    border: 1px solid var(--line);
+    padding: 10px;
+    vertical-align: middle;
+    text-align: center;
+    background:#fafafa;
+  }
+  .fp-seal{ font-weight:900; font-size:18px; letter-spacing:2px; }
+  .fp-img{
+    height: 84px; width: auto;
+    display:inline-block; border-radius:6px; background:#fff;
+    border:1px solid var(--line);
+  }
+
+  /* 페이지네이션 */
+  .pagination{
+    display:flex; gap:10px; justify-content:center; align-items:center;
+    padding:16px; flex-wrap:wrap; text-align:center;
+  }
+  .pagination a,.pagination span{font-size:15px;text-decoration:none;color:var(--fg)}
+  .pagination a:hover{text-decoration:underline}
+  .pagination .current{font-weight:900;text-decoration:underline}
+  .pagination .disabled{color:#bbb;pointer-events:none}
+  .pagination .dots{color:#888}
+
+  /* 캘린더 화면 */
+  .calendar-wrap{padding:18px 16px; text-align:center;}
+  .calendar-bar{
+    display:flex; gap:10px; align-items:center; justify-content:center; flex-wrap:wrap;
+    margin-top:8px;
+  }
+  .calendar-bar input[type="date"]{
+    padding:10px; border-radius:8px; border:1px solid #ccc; font-size:16px; min-width:190px;
+  }
+  .calendar-bar .btn{
+    padding:10px 16px; border:none; border-radius:8px;
+    background:#111; color:#fff; font-weight:700; cursor:pointer;
+  }
+
+  /* 검색 화면 */
+  .search-wrap{padding:18px 16px; text-align:center;}
+  .search-bar{
+    display:flex; gap:8px; justify-content:center; align-items:center; flex-wrap:wrap;
+    margin:10px auto 14px;
+  }
+  .search-bar input[type="text"]{
+    padding:10px 12px; border:1px solid #ccc; border-radius:8px; min-width:220px; font-size:16px;
+  }
+  .search-bar .btn{ padding:10px 16px; border:none; border-radius:8px; background:#111; color:#fff; font-weight:700; cursor:pointer; }
+  .search-msg{ color:#666; margin-top:6px; text-align:center; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card" id="view"><!-- 렌더링 영역 --></div>
+  </div>
+
+<script>
+/* =========================
+   1) 직원 데이터 (이름 순서 그대로)
+   ========================= */
+const NAMES = [
+  "고저승","박서준","이도현","최민서","정유진","한지민","오세훈","조유리","송강호","임윤아",
+  "장원영","안유진","배수지","신혜선","최순례","문세윤","박춘배","노태현","오해원","김첨지",
+  "강호동","손흥민","박지성","전아영","박주은","지덕수","이서연","윤미정","정세윤","한소희",
+  "문가영","서강준","Mr.B","이효리","김연아","차은우","홍진호","오경비","백지영","최순례",
+  "남주혁","심은경","변요한","하정우","김우빈","박보영","김지유","김할배","정해인","윤계상"
+];
+const ROLES = ["매장 스태프","창고 관리","CS 응대","매장 운영","VMD"];
+const pad2 = n => String(n).padStart(2,"0");
+
+/* ✅ 특정 인물 값 고정(이름 기준) */
+const OVERRIDES = {
+  "최순례": {   // 15번
+    role: "매장 운영",
+    bio: "매장 운영 총괄. 근무표와 동선을 빈틈없이 관리합니다.",
+    birth: "0350-08-12",
+    fingerprint: "static/fingerprints/15.png",
+  },
+
+  "박춘배": {  // 17번
+    role: "비주얼 멤버",
+    bio: "귀여움으로 그 쓸모를 다합니다.",
+    birth: "0123-07-22",
+    fingerprint: "static/fingerprints/15.png",
+  },
+
+"박주은": {  //20번
+    role: "신문배달",
+    bio: "매일 아침 4시에 신문을 염라대왕님 방 앞에 둡니다.",
+    birth: "2001-05-11",
+    fingerprint: "static/fingerprints/20.png",
+  },
+  
+"전아영" : {  //24번
+    role: "우유배달",
+    bio: "매일 아침 4시에 우유를 염라대왕님 방 앞에 둡니다.",
+    birth: "2001-03-23",
+    fingerprint: "static/fingerprints/24.png"
+  },
+
+  "지덕수": {  //26번
+    role: "삼도천 경비",
+    bio: "삼도천 다리를 지나다니는 인수를 확인합니다.",
+    birth: "0101-01-01",
+    fingerprint: "static/fingerprints/26.png",
+  },
+
+"윤미정" : {  //28번
+    role: "VMD",
+    bio: "뛰어난 감각으로 디자인합니다.",
+    birth: "2000-09-03",
+    fingerprint: "static/fingerprints/28.png",
+  },
+
+"Mr.B": {  //33번
+    role: "매장관리, 고객응대",
+    bio: "꼼꼼하게 관리하고, 고객에게 친절합니다.",
+    birth: "0444-08-12",
+    fingerprint: "static/fingerprints/33.png",
+  },
+
+  "오경비": {  //38번
+    role: "매장 운영",
+    bio: "매장 보안과 안전을 책임집니다.",
+    birth: "0233-12-11",
+    fingerprint: "static/fingerprints/38.png",
+  },
+
+"김할배" : {  //48번
+    role: "VMD",
+    bio: "뛰어난 감각으로 디자인합니다.",
+    birth: "0444-09-03",
+    fingerprint: "static/fingerprints/15.png",
+  }
+};
+
+
+
+/* 의사난수(직원별 고정 생일) */
+function seeded(n){ const x=Math.sin(n*997)*10000; return x-Math.floor(x); }
+function birthdayForId(idNum){
+  const year  = Math.floor(seeded(idNum)*4421);           // 0 ~ 4420
+  const month = Math.floor(seeded(idNum+37)*12)+1;        // 1 ~ 12
+  const day   = Math.floor(seeded(idNum+73)*28)+1;        // 1 ~ 28
+  return `${String(year).padStart(4,'0')}-${pad2(month)}-${pad2(day)}`;
+}
+function bioFor(name, role){
+  const map = {
+    "매장 스태프": `${name}은(는) 고객 응대와 진열을 빈틈없이 수행합니다.`,
+    "창고 관리": `${name}은(는) 재고와 입출고를 정확히 관리합니다.`,
+    "CS 응대": `${name}은(는) 문의를 침착하게 해결하는 CS 담당자입니다.`,
+    "매장 운영": `${name}은(는) 위생·동선·근무표를 총괄합니다.`,
+    "VMD": `${name}은(는) 시즌 연출과 디스플레이를 기획합니다.`
+  };
+  return map[role] || `${name}의 간단한 소개입니다.`;
+}
+
+/* 직원 50명 생성 + OVERRIDES 병합 (이름 기준) */
+const EMPLOYEES = Array.from({length:50}, (_,i)=>{
+  const id = pad2(i+1);
+  const name = NAMES[i];
+  const role = ROLES[i % ROLES.length];
+
+  const base = {
+    id,
+    name,
+    role,
+    birth: birthdayForId(i+1),
+    bio: bioFor(name, role),
+    photo: `static/photos/${id}.jpg`,
+    fingerprint: `static/fingerprints/${id}.jpg`   // ← jpg로 통일
+  };
+
+  const byName = OVERRIDES[name] || {};
+  return { ...base, ...byName };
+});
+
+/* =========================
+   2) 공통 렌더/유틸
+   ========================= */
+const view = document.getElementById("view");
+const TOTAL_PAGES = EMPLOYEES.length;
+
+function buildTopbar(titleText){
+  return `
+    <div class="topbar">
+      <h1 class="title">${titleText}</h1>
+      <div class="chips">
+        <a class="chip" href="#" onclick="renderHome(1);return false;">전체 직원 보기</a>
+        <a class="chip" href="#" onclick="renderCalendar();return false;">DATE 별 근무자 검색</a>
+        <a class="chip" href="#" onclick="renderSearch();return false;">이름으로 검색</a>
+      </div>
+    </div>
+  `;
+}
+
+function buildPagination(cur, total=TOTAL_PAGES, window=2){
+  const parts = [];
+  const link = (p, label, disabled=false, current=false)=>{
+    if(disabled) return `<span class="disabled">${label}</span>`;
+    if(current)  return `<span class="current">${label}</span>`;
+    return `<a href="#" onclick="renderHome(${p});return false;">${label}</a>`;
+  };
+  parts.push(link(1,"&laquo;", cur===1));
+  parts.push(link(Math.max(cur-1,1),"&lt;", cur===1));
+
+  if(cur < total){
+    const start = Math.max(cur-window,1);
+    const end   = Math.min(cur+window,total-1);
+    for(let p=start;p<=end;p++) parts.push(link(p,p,false,p===cur));
+    parts.push(`<span class="dots">...</span>`);
+    parts.push(link(total,"&raquo;"));
+  }else{
+    const start = Math.max(total-window-1,1);
+    for(let p=start;p<total;p++) parts.push(link(p,p));
+    parts.push(`<span class="dots">...</span><span class="disabled">&raquo;</span>`);
+  }
+  return parts.join("");
+}
+
+/* 직원 카드 (홈/검색 공용) */
+function buildEmployeeCard(emp){
+  return `
+    <div class="hero">
+      <img id="photo" src="${emp.photo}" alt="${emp.name} 사진">
+    </div>
+
+    <div class="content">
+      <h2 class="name">${emp.name}</h2>
+      <div class="role">${emp.role}</div>
+      <div class="born">생일 : ${emp.birth}</div>
+
+      <p class="bio">${emp.bio}</p>
+      <p class="pledge">본인은 근로계약서에 어떠한 불만도 가지지 않겠습니다.</p>
+
+      <!-- 지문 표 -->
+      <table class="fp-table" aria-label="서명 및 지문">
+        <tr>
+          <td class="fp-seal">인/금수</td>
+          <td><img id="finger" class="fp-img" src="${emp.fingerprint}" alt="지문 이미지"></td>
+        </tr>
+      </table>
+    </div>
+  `;
+}
+
+function applyImageFallback(){
+  const photo = document.getElementById('photo');
+  const finger = document.getElementById('finger');
+  if(photo){
+    photo.onerror = ()=>{ photo.onerror=null; photo.src="static/photos/placeholder.jpg"; };
+  }
+  if(finger){
+    finger.onerror = ()=>{ finger.onerror=null; finger.src="static/fingerprints/placeholder.jpg"; };
+  }
+}
+
+/* =========================
+   3) 홈(전체 직원 보기)
+   ========================= */
+function renderHome(page=1){
+  page = Math.max(1, Math.min(TOTAL_PAGES, parseInt(page)||1));
+  const emp = EMPLOYEES[page-1];
+  const pagination = buildPagination(page);
+
+  view.innerHTML = `
+    ${buildTopbar("전체 직원 보기")}
+    ${buildEmployeeCard(emp)}
+    <nav class="pagination">${pagination}</nav>
+  `;
+
+  applyImageFallback();
+}
+
+/* =========================
+   4) DATE 별 근무자 검색
+   ========================= */
+let currentDate = new Date(); // 기본: 오늘
+
+function renderCalendar() {
+  const y = currentDate.getFullYear();
+  const m = String(currentDate.getMonth()+1).padStart(2,"0");
+  const d = String(currentDate.getDate()).padStart(2,"0");
+  const dateStr = `${y}-${m}-${d}`;
+
+  // 1️⃣ 4444년 12월 14일일 때 — 여러 명 표시
+  if (y===4444 && m==="12" && d==="14") {
+    const selectedIds = [15, 17, 20, 24, 26, 28, 33, 38, 48]; // 번호 고정
+    const selected = EMPLOYEES.filter((_, i) => selectedIds.includes(i+1));
+
+    const cards = selected.map(emp => `
+      <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:center; margin:24px auto; gap:20px; border-bottom:1px solid #eee; padding-bottom:20px;">
+        <div style="flex:1 1 220px; text-align:center;">
+          <img src="${emp.photo}" alt="${emp.name}" style="width:100%; max-width:240px; border-radius:10px; border:1px solid #ddd;">
+        </div>
+        <div style="flex:1 1 260px; text-align:left;">
+          <h2 style="margin:0 0 6px; font-size:22px;">${emp.name}</h2>
+          <div style="color:#0b58b6; font-weight:700; margin-bottom:6px;">${emp.role}</div>
+          <div style="color:#333; margin-bottom:10px;">생일 : ${emp.birth}</div>
+          <p style="margin:0 0 10px; color:#444; line-height:1.5;">${emp.bio}</p>
+          <p style="margin:0 0 14px; font-weight:700;">본인은 근로계약서에 어떠한 불만도 가지지 않겠습니다.</p>
+
+          <table style="border-collapse:collapse; width:220px; border:1px solid #ccc;">
+            <tr>
+              <td style="border:1px solid #ccc; padding:8px; text-align:center; font-weight:700;">인</td>
+              <td style="border:1px solid #ccc; padding:8px; text-align:center;">
+                <img src="${emp.fingerprint}" alt="지문" style="width:80px; height:auto; border-radius:6px; border:1px solid #ddd;">
+              </td>
+            </tr>
+          </table>
+        </div>
+      </div>
+    `).join("");
+
+    view.innerHTML = `
+      ${buildTopbar("DATE 별 근무자 검색")}
+      <div class="calendar-wrap">
+        <h2 class="name">${y}년 ${m}월 ${d}일 근무자 명단</h2>
+        <div class="calendar-bar">
+          <input type="date" id="pickDate" value="${dateStr}" oninput="setDateFromInput()" onchange="setDateFromInput()">
+          <button class="btn" onclick="setFixedDate()">Today</button>
+        </div>
+      </div>
+      <div style="padding:16px;">${cards}</div>
+    `;
+
+    applyImageFallback();
+    return;
+  }
+
+  // 2️⃣ 그 외의 날짜는 기존처럼
+  let img = "static/error.jpg";
+
+  view.innerHTML = `
+    ${buildTopbar("DATE 별 근무자 검색")}
+    <div class="calendar-wrap">
+      <h2 class="name" style="margin-bottom:4px;">${y}년 ${m}월 ${d}일 근무자 명단</h2>
+      <div class="calendar-bar">
+        <input type="date" id="pickDate" value="${dateStr}" oninput="setDateFromInput()" onchange="setDateFromInput()">
+        <button class="btn" onclick="setFixedDate()">Today</button>
+      </div>
+    </div>
+    <div class="hero" style="margin-bottom:16px;">
+      <img src="${img}" alt="날짜 이미지" style="max-width:100%; border-radius:10px;">
+    </div>
+  `;
+}
+
+function setDateFromInput(){
+  const input = document.getElementById("pickDate");
+  if (input && input.value) currentDate = new Date(input.value);
+  renderCalendar();
+}
+function setFixedDate(){
+  // Today = 4444-12-15
+  currentDate = new Date(4444, 11, 15); // 11 = 12월
+  renderCalendar();
+}
+
+/* =========================
+   5) 이름으로 검색 (입력칸 유지)
+   ========================= */
+let searchName = "";       // 입력값 유지용
+let lastFound = null;      // 마지막 검색 결과(emp 객체 또는 null)
+
+function renderSearch(){
+  const resultHtml = lastFound ? buildEmployeeCard(lastFound) : `<div class="search-msg">정확한 이름(세 글자)을 입력해 주세요.<br><br><br></div>`;
+  view.innerHTML = `
+    ${buildTopbar("이름으로 검색")}
+    <div class="search-wrap">
+      <div class="search-bar">
+        <input type="text" id="nameInput" placeholder="예: 김하늘" value="${searchName}">
+        <button class="btn" onclick="doSearch()">검색</button>
+      </div>
+    </div>
+    ${resultHtml}
+  `;
+
+  applyImageFallback();
+  const i = document.getElementById('nameInput');
+  if(i){ i.focus(); i.addEventListener('keydown', e=>{ if(e.key==='Enter') doSearch(); }); }
+}
+
+function doSearch(){
+  const i = document.getElementById('nameInput');
+  searchName = (i?.value || "").trim();
+  // 정확 일치 (대소문자 구분: 한글 그대로, Mr.B는 정확히 입력)
+  lastFound = EMPLOYEES.find(e => e.name === searchName) || null;
+  renderSearch(); // 입력칸 유지 + 결과 갱신
+}
+
+/* 시작 */
+renderHome(1);
+</script>
+</body>
+</html>
